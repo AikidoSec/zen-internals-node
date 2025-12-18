@@ -1,0 +1,35 @@
+{
+  "name": "zen-internals-node",
+  "version": "1.0.0",
+  "description": "Hook into eval/new Function() to validate code before compilation",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "build": "node-gyp build",
+    "rebuild": "node-gyp rebuild",
+    "clean": "node-gyp clean"
+  },
+  "files": [
+    "src/",
+    "index.js",
+    "index.d.ts",
+    "binding.gyp"
+  ],
+  "keywords": [
+    "eval",
+    "function",
+    "security",
+    "codegen",
+    "hook",
+    "native"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "gypfile": true,
+  "dependencies": {
+    "nan": "^2.18.0"
+  }
+}

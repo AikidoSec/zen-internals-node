@@ -39,6 +39,9 @@ jobs:
       - name: Build prebuild
         run: npx prebuildify --strip
 
+      - name: List prebuilds
+        run: ls -lR prebuilds/
+
       - name: Run tests
         run: npm test
 

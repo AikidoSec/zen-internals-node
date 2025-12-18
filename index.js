@@ -1,16 +1,15 @@
 const path = require('path');
 const fs = require('fs');
 
-// Load the correct prebuilt binary for this platform/arch/ABI
+// Load the correct prebuilt binary for this platform/arch
 const platform = process.platform;
 const arch = process.arch;
-const abi = process.versions.modules;
 
-const bindingPath = path.join(__dirname, 'prebuilds', `${platform}-${arch}`, `node-v${abi}.node`);
+const bindingPath = path.join(__dirname, 'prebuilds', `${platform}-${arch}`, 'zen-internals-node.node');
 
 if (!fs.existsSync(bindingPath)) {
   throw new Error(
-    `No prebuilt binary found for ${platform}-${arch} with ABI ${abi} (Node.js ${process.version}). ` +
+    `No prebuilt binary found for ${platform}-${arch} (Node.js ${process.version}). ` +
     `Expected: ${bindingPath}`
   );
 }

@@ -38,10 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
-      # Python 3.12+ removed distutils, but older node-gyp versions need it
-      - name: Install setuptools for Python
+      # Python 3.12+ removed distutils, but node-gyp needs it
+      - name: Setup Python 3.11 for node-gyp
         if: runner.os == 'macOS'
-        run: pip install setuptools
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       # Node 17.0.0 headers are missing due to a bug, use 17.9.1 instead
       - name: Build prebuild

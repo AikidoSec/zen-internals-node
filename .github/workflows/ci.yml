@@ -6,6 +6,7 @@ jobs:
   prebuild:
     name: Prebuild ${{ matrix.os }} ${{ matrix.arch }} Node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:

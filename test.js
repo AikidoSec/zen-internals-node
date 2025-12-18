@@ -1,6 +1,5 @@
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { AsyncLocalStorage } = require('node:async_hooks');
+const assert = require('assert');
+const { AsyncLocalStorage } = require('async_hooks');
 const { setCodeGenerationCallback } = require('.');
 
 const store = new AsyncLocalStorage();
@@ -12,36 +11,38 @@ setCodeGenerationCallback((source) => {
   }
 });
 
-test('allows eval without async context', () => {
-  assert.strictEqual(eval('1 + 1'), 2);
+// Test: allows eval without async context
+assert.strictEqual(eval('1 + 1'), 2);
+
+// Test: allows eval when context has blocked: false
+store.run({ requestId: 'req-123', blocked: false }, () => {
+  assert.strictEqual(eval('2 + 2'), 4);
 });
 
-test('allows eval when context has blocked: false', () => {
-  store.run({ requestId: 'req-123', blocked: false }, () => {
-    assert.strictEqual(eval('2 + 2'), 4);
-  });
+// Test: blocks eval when context has blocked: true
+store.run({ requestId: 'req-456', blocked: true }, () => {
+  assert.throws(
+    () => eval('3 + 3'),
+    {
+      name: 'EvalError',
+      message: 'Blocked eval in request req-456'
+    }
+  );
 });
 
-test('blocks eval when context has blocked: true', () => {
-  store.run({ requestId: 'req-456', blocked: true }, () => {
-    assert.throws(
-      () => eval('3 + 3'),
-      {
-        name: 'EvalError',
-        message: 'Blocked eval in request req-456'
-      }
-    );
-  });
+// Test: blocks new Function when context has blocked: true
+store.run({ requestId: 'req-789', blocked: true }, () => {
+  assert.throws(
+    () => new Function('return 1'),
+    {
+      name: 'EvalError',
+      message: 'Blocked eval in request req-789'
+    }
+  );
 });
 
-test('blocks new Function when context has blocked: true', () => {
-  store.run({ requestId: 'req-789', blocked: true }, () => {
-    assert.throws(
-      () => new Function('return 1'),
-      {
-        name: 'EvalError',
-        message: 'Blocked eval in request req-789'
-      }
-    );
-  });
-});
+console.log('All tests passed');
+
+// TODO test for overwriting the callback
+// TODO test vm module with the dynamic code generation options
+// TODO test with the --disallow-code-generation-from-strings flag

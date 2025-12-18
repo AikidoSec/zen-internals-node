@@ -6,7 +6,7 @@
   "types": "index.d.ts",
   "scripts": {
     "prebuild": "prebuildify --strip -t 16.0.0 -t 17.9.1 -t 18.0.0 -t 19.0.0 -t 20.0.0 -t 21.0.0 -t 22.0.0 -t 23.0.0 -t 24.0.0 -t 25.0.0",
-    "test": "node --test test.js"
+    "test": "node test.js"
   },
   "files": [
     "src/",

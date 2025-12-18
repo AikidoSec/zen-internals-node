@@ -52,9 +52,6 @@ jobs:
           mv zen-internals-node.node zen-internals-node.node${{ matrix.node }}.node
         shell: bash
 
-      - name: List prebuilds
-        run: ls -lR prebuilds/
-
       - name: Run tests
         run: npm test
 

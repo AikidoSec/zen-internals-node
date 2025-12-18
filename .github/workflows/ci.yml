@@ -37,6 +37,11 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
+      # Python 3.12+ removed distutils, but older node-gyp versions need it
+      - name: Install setuptools for Python
+        if: runner.os == 'macOS'
+        run: pip install setuptools
+
       # Node 17.0.0 headers are missing due to a bug, use 17.9.1 instead
       - name: Build prebuild
         run: npx prebuildify --strip -t ${{ matrix.node == 17 && '17.9.1' || format('{0}.0.0', matrix.node) }}

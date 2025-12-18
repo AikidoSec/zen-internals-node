@@ -5,11 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "install": "node-gyp-build",
-    "build": "node-gyp build",
-    "rebuild": "node-gyp rebuild",
-    "clean": "node-gyp clean",
-    "prebuild": "prebuildify --napi --strip",
+    "prebuild": "prebuildify --strip -t 16.0.0 -t 17.9.1 -t 18.0.0 -t 19.0.0 -t 20.0.0 -t 21.0.0 -t 22.0.0 -t 23.0.0 -t 24.0.0 -t 25.0.0",
     "test": "node --test test.js"
   },
   "files": [
@@ -29,11 +25,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=16.0.0"
-  },
-  "gypfile": true,
-  "dependencies": {
-    "node-gyp-build": "^4.8.4"
+    "node": ">=16.0.0 <=25.0.0"
   },
   "devDependencies": {
     "prebuildify": "^6.0.1"

@@ -50,14 +50,16 @@ jobs:
       - name: Build prebuild
         run: npx prebuildify --strip -t ${{ matrix.node == 17 && '17.9.1' || format('{0}.0.0', matrix.node) }}
 
-      - name: Rename prebuild with Node version
-        run: |
-          cd prebuilds/*/
-          mv zen-internals-node.node zen-internals-node.node${{ matrix.node }}.node
-        shell: bash
-
       - name: Run tests
         run: npm test
+
+      - name: Rename prebuild with platform and Node version
+        run: |
+          for dir in prebuilds/*/; do
+            platform=$(basename "$dir")
+            mv "$dir/zen-internals-node.node" "prebuilds/zen-internals-node-$platform-node${{ matrix.node }}.node"
+          done
+        shell: bash
 
       - name: Upload prebuild
         uses: actions/upload-artifact@v4

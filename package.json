@@ -3,14 +3,13 @@
   "version": "1.0.0",
   "description": "Hook into eval/new Function() to validate code before compilation",
   "main": "index.js",
-  "types": "index.d.ts",
+  "private": true,
   "scripts": {
     "test": "node test.js"
   },
   "files": [
     "src/",
     "index.js",
-    "index.d.ts",
     "binding.gyp",
     "prebuilds/"
   ],
@@ -22,7 +21,6 @@
     "hook",
     "native"
   ],
-  "license": "MIT",
   "engines": {
     "node": ">=16.0.0 <=25.0.0"
   },

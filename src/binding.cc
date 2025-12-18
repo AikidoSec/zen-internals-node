@@ -7,7 +7,7 @@
  * - V8 is used directly for SetModifyCodeGenerationFromStringsCallback because
  *   N-API has no equivalent API for intercepting eval/new Function() calls.
  *   This V8 API has been stable since Node.js 12, but changes could break
- *   prebuilt binaries. A runtime version check guards against this.
+ *   prebuilt binaries.
  *
  * V8-specific code is marked with [V8 API] comments below.
  */
@@ -15,9 +15,6 @@
 #include <node_api.h>
 #include <v8.h>  // [V8 API] Required for SetModifyCodeGenerationFromStringsCallback
 #include <cstring>
-
-#define MIN_NODE_VERSION 16
-#define MAX_NODE_VERSION 25
 
 static napi_env g_env = nullptr;
 static napi_ref g_callback_ref = nullptr;
@@ -132,18 +129,6 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
 }
 
 napi_value Init(napi_env env, napi_value exports) {
-  // Check Node.js version at runtime
-  const napi_node_version* node_version;
-  napi_get_node_version(env, &node_version);
-
-  if (node_version->major < MIN_NODE_VERSION || node_version->major > MAX_NODE_VERSION) {
-    napi_throw_error(env, nullptr,
-      "zen-internals-node: Unsupported Node.js version. "
-      "This prebuilt binary supports Node.js 16-25. "
-      "Please rebuild from source or use a supported version.");
-    return nullptr;
-  }
-
   napi_property_descriptor desc = {
     "setCodeGenerationCallback",  // name
     nullptr,                       // symbol

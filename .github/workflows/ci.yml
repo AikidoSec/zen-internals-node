@@ -39,6 +39,12 @@ jobs:
       - name: Build prebuild
         run: npx prebuildify --strip
 
+      - name: Rename prebuild with Node version
+        run: |
+          cd prebuilds/*/
+          mv zen-internals-node.node zen-internals-node.node${{ matrix.node }}.node
+        shell: bash
+
       - name: List prebuilds
         run: ls -lR prebuilds/
 

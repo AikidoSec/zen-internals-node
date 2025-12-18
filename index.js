@@ -15,7 +15,7 @@ if (!supportedVersions.includes(nodeMajor)) {
   );
 }
 
-const bindingPath = path.join(__dirname, 'prebuilds', `${platform}-${arch}`, `zen-internals-node.node${nodeMajor}.node`);
+const bindingPath = path.join(__dirname, 'prebuilds', `${platform}-${arch}`, 'zen-internals-node.node');
 
 if (!fs.existsSync(bindingPath)) {
   throw new Error(

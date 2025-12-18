@@ -5,16 +5,19 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "install": "node-gyp rebuild",
+    "install": "node-gyp-build",
     "build": "node-gyp build",
     "rebuild": "node-gyp rebuild",
-    "clean": "node-gyp clean"
+    "clean": "node-gyp clean",
+    "prebuild": "prebuildify --napi --strip",
+    "test": "node --test test.js"
   },
   "files": [
     "src/",
     "index.js",
     "index.d.ts",
-    "binding.gyp"
+    "binding.gyp",
+    "prebuilds/"
   ],
   "keywords": [
     "eval",
@@ -26,10 +29,13 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0"
   },
   "gypfile": true,
   "dependencies": {
-    "nan": "^2.18.0"
+    "node-gyp-build": "^4.8.4"
+  },
+  "devDependencies": {
+    "prebuildify": "^6.0.1"
   }
 }

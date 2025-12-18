@@ -1,11 +1,9 @@
 {
   "targets": [
     {
-      "target_name": "codegen_hook",
+      "target_name": "zen-internals-node",
       "sources": ["src/binding.cc"],
-      "include_dirs": [
-        "<!(node -e \"require('nan')\")"
-      ]
+      "defines": ["NAPI_VERSION=8"]
     }
   ]
 }

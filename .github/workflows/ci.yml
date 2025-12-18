@@ -37,8 +37,9 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
+      # Node 17.0.0 headers are missing due to a bug, use 17.9.1 instead
       - name: Build prebuild
-        run: npx prebuildify --strip
+        run: npx prebuildify --strip -t ${{ matrix.node == 17 && '17.9.1' || format('{0}.0.0', matrix.node) }}
 
       - name: Rename prebuild with Node version
         run: |

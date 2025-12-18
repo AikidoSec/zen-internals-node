@@ -41,7 +41,7 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
 
   // [V8 API] Convert V8 source to N-API string
   // We must use V8 to extract the string since 'source' is a V8 type
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::String::Utf8Value utf8(isolate, source);
 
   napi_value source_napi;

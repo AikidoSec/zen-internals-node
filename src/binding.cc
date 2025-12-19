@@ -1,13 +1,12 @@
 /**
- * This addon uses a hybrid N-API/V8 approach:
+ * This addon uses pure V8 API for the code generation callback:
  *
- * - N-API is used for module initialization, JS callback storage, and general
- *   JS interop. This provides ABI stability across Node.js versions.
+ * - N-API is used only for module initialization and exporting functions.
  *
- * - V8 is used directly for SetModifyCodeGenerationFromStringsCallback because
- *   N-API has no equivalent API for intercepting eval/new Function() calls.
- *   This V8 API has been stable since Node.js 12, but changes could break
- *   prebuilt binaries.
+ * - V8 is used directly for SetModifyCodeGenerationFromStringsCallback and
+ *   for storing/calling the JS callback. This is necessary because the callback
+ *   can be invoked during V8 internal operations (microtasks, module parsing)
+ *   where N-API functions cannot be safely called due to locking requirements.
  *
  * V8-specific code is marked with [V8 API] comments below.
  */
@@ -16,8 +15,9 @@
 #include <v8.h>  // [V8 API] Required for SetModifyCodeGenerationFromStringsCallback
 #include <cstring>
 
-static napi_env g_env = nullptr;
-static napi_ref g_callback_ref = nullptr;
+// [V8 API] Store callback as V8 Persistent to avoid N-API locking issues
+static v8::Persistent<v8::Function> g_callback;
+static v8::Isolate* g_isolate = nullptr;
 
 // [V8 API] This callback signature is defined by V8, not N-API.
 // It receives V8 types directly from the engine when eval/Function is called.
@@ -26,65 +26,48 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     v8::Local<v8::Value> source,
     bool is_code_like) {
 
-  if (g_callback_ref == nullptr || g_env == nullptr) {
+  if (g_isolate == nullptr || g_callback.IsEmpty()) {
     return {true, {}};
   }
 
-  napi_value callback;
-  napi_status status = napi_get_reference_value(g_env, g_callback_ref, &callback);
-  if (status != napi_ok || callback == nullptr) {
+  v8::Isolate* isolate = context->GetIsolate();
+
+  // Ensure we're on the same isolate where the callback was registered
+  if (isolate != g_isolate) {
     return {true, {}};
   }
 
-  // [V8 API] Convert V8 source to N-API string
-  // We must use V8 to extract the string since 'source' is a V8 type
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  v8::String::Utf8Value utf8(isolate, source);
+  // [V8 API] Create a HandleScope for our local handles
+  v8::HandleScope handle_scope(isolate);
 
-  napi_value source_napi;
-  status = napi_create_string_utf8(g_env, *utf8, utf8.length(), &source_napi);
-  if (status != napi_ok) {
+  // Get the callback function from the persistent handle
+  v8::Local<v8::Function> callback = g_callback.Get(isolate);
+  if (callback.IsEmpty()) {
     return {true, {}};
   }
+
+  // Prepare arguments - source is already a V8 value
+  v8::Local<v8::Value> argv[1] = { source };
 
   // Call the JS callback
-  napi_value global, result;
-  napi_get_global(g_env, &global);
+  v8::TryCatch try_catch(isolate);
+  v8::MaybeLocal<v8::Value> maybe_result = callback->Call(context, context->Global(), 1, argv);
 
-  napi_value argv[1] = { source_napi };
-  status = napi_call_function(g_env, global, callback, 1, argv, &result);
-
-  if (status != napi_ok) {
-    // Exception was thrown - block code generation
-    napi_value exception;
-    bool is_pending;
-    napi_is_exception_pending(g_env, &is_pending);
-    if (is_pending) {
-      napi_get_and_clear_last_exception(g_env, &exception);
-    }
-    return {false, {}};
+  if (try_catch.HasCaught()) {
+    // The callback threw an exception - default to allow
+    return {true, {}};
   }
 
+  if (maybe_result.IsEmpty()) {
+    return {true, {}};
+  }
+
+  v8::Local<v8::Value> result = maybe_result.ToLocalChecked();
+
   // Check if result is a string (means block with custom message)
-  napi_valuetype result_type;
-  napi_typeof(g_env, result, &result_type);
-
-  if (result_type == napi_string) {
-    // Get string length and content
-    size_t str_len;
-    napi_get_value_string_utf8(g_env, result, nullptr, 0, &str_len);
-
-    char* buf = new char[str_len + 1];
-    napi_get_value_string_utf8(g_env, result, buf, str_len + 1, &str_len);
-
-    // [V8 API] Set error message using V8 API
-    // N-API has no equivalent for SetErrorMessageForCodeGenerationFromStrings
-    v8::Local<v8::String> error_msg = v8::String::NewFromUtf8(
-        isolate, buf, v8::NewStringType::kNormal, static_cast<int>(str_len))
-        .ToLocalChecked();
+  if (result->IsString()) {
+    v8::Local<v8::String> error_msg = result.As<v8::String>();
     context->SetErrorMessageForCodeGenerationFromStrings(error_msg);
-
-    delete[] buf;
     return {false, {}};
   }
 
@@ -109,20 +92,25 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
     return nullptr;
   }
 
-  // Clean up existing reference if any
-  if (g_callback_ref != nullptr) {
-    napi_delete_reference(g_env, g_callback_ref);
-    g_callback_ref = nullptr;
+  // [V8 API] Get the V8 isolate and function from N-API values
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+
+  // Clean up existing callback if any
+  if (!g_callback.IsEmpty()) {
+    g_callback.Reset();
   }
 
-  // Store env and create reference to callback
-  g_env = env;
-  napi_create_reference(env, argv[0], 1, &g_callback_ref);
+  // [V8 API] Convert N-API value to V8 Local and store as Persistent
+  // N-API values are wrappers around V8 values, so we can cast them
+  v8::Local<v8::Value> v8_value = reinterpret_cast<v8::Local<v8::Value>*>(&argv[0])[0];
+  v8::Local<v8::Function> v8_func = v8_value.As<v8::Function>();
+
+  g_isolate = isolate;
+  g_callback.Reset(isolate, v8_func);
 
   // [V8 API] Register the V8 callback
   // This is the core V8-specific API - N-API has no equivalent for intercepting
   // code generation from strings (eval, new Function, etc.)
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   isolate->SetModifyCodeGenerationFromStringsCallback(ModifyCodeGenCallback);
 
   return nullptr;

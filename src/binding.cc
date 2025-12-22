@@ -1,26 +1,17 @@
 /**
- * This addon uses pure V8 API for the code generation callback:
+ * Uses V8's SetModifyCodeGenerationFromStringsCallback to intercept eval/Function calls.
+ * SetErrorMessageForCodeGenerationFromStrings sets the custom error message.
  *
- * - N-API is used only for module initialization and exporting functions.
- *
- * - V8 is used directly for SetModifyCodeGenerationFromStringsCallback and
- *   for storing/calling the JS callback. This is necessary because the callback
- *   can be invoked during V8 internal operations (microtasks, module parsing)
- *   where N-API functions cannot be safely called due to locking requirements.
- *
- * V8-specific code is marked with [V8 API] comments below.
+ * Based on Node's --disallow-code-generation-from-strings flag behavior.
  */
 
 #include <node_api.h>
-#include <v8.h>  // [V8 API] Required for SetModifyCodeGenerationFromStringsCallback
+#include <v8.h>
 #include <cstring>
 
-// [V8 API] Store callback as V8 Persistent to avoid N-API locking issues
 static v8::Persistent<v8::Function> g_callback;
 static v8::Isolate* g_isolate = nullptr;
 
-// [V8 API] This callback signature is defined by V8, not N-API.
-// It receives V8 types directly from the engine when eval/Function is called.
 v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     v8::Local<v8::Context> context,
     v8::Local<v8::Value> source,
@@ -37,24 +28,20 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     return {true, {}};
   }
 
-  // [V8 API] Create a HandleScope for our local handles
   v8::HandleScope handle_scope(isolate);
 
-  // Get the callback function from the persistent handle
   v8::Local<v8::Function> callback = g_callback.Get(isolate);
   if (callback.IsEmpty()) {
     return {true, {}};
   }
 
-  // Prepare arguments - source is already a V8 value
   v8::Local<v8::Value> argv[1] = { source };
 
-  // Call the JS callback
   v8::TryCatch try_catch(isolate);
   v8::MaybeLocal<v8::Value> maybe_result = callback->Call(context, context->Global(), 1, argv);
 
   if (try_catch.HasCaught()) {
-    // The callback threw an exception - default to allow
+    // The callback threw an exception, allow code generation
     return {true, {}};
   }
 
@@ -64,14 +51,14 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
 
   v8::Local<v8::Value> result = maybe_result.ToLocalChecked();
 
-  // Check if result is a string (means block with custom message)
+  // String result = block with custom error message
   if (result->IsString()) {
     v8::Local<v8::String> error_msg = result.As<v8::String>();
     context->SetErrorMessageForCodeGenerationFromStrings(error_msg);
     return {false, {}};
   }
 
-  // Undefined or other = allow
+  // Any other result, allow code generation
   return {true, {}};
 }
 
@@ -92,7 +79,6 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
     return nullptr;
   }
 
-  // [V8 API] Get the V8 isolate and function from N-API values
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
 
   // Clean up existing callback if any
@@ -108,9 +94,6 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
   g_isolate = isolate;
   g_callback.Reset(isolate, v8_func);
 
-  // [V8 API] Register the V8 callback
-  // This is the core V8-specific API - N-API has no equivalent for intercepting
-  // code generation from strings (eval, new Function, etc.)
   isolate->SetModifyCodeGenerationFromStringsCallback(ModifyCodeGenCallback);
 
   return nullptr;

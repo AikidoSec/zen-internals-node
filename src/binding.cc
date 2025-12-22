@@ -62,7 +62,7 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
   return {true, {}};
 }
 
-napi_value SetCallback(napi_env env, napi_callback_info info) {
+napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1];
   napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
@@ -96,13 +96,13 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
 napi_value Init(napi_env env, napi_value exports) {
   napi_property_descriptor desc = {
     "setCodeGenerationCallback",  // name
-    nullptr,                       // symbol
-    SetCallback,                   // method
-    nullptr,                       // getter
-    nullptr,                       // setter
-    nullptr,                       // value
-    napi_default,                  // attributes
-    nullptr                        // data
+    nullptr,                      // symbol
+    SetCodeGenerationCallback,    // method
+    nullptr,                      // getter
+    nullptr,                      // setter
+    nullptr,                      // value
+    napi_default,                 // attributes
+    nullptr                       // data
   };
   napi_define_properties(env, exports, 1, &desc);
   return exports;

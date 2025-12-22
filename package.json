@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Hook into eval/new Function() to validate code before compilation",
   "main": "index.js",
-  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "test": "node test.js"
   },

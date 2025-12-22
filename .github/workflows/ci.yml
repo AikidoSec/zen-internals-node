@@ -41,7 +41,7 @@ jobs:
         run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
 
       - name: Install dependencies
-        run: npm i
+        run: npm install --ignore-scripts
 
       # Python 3.12+ removed distutils, but node-gyp needs it
       - name: Setup Python 3.11 for node-gyp

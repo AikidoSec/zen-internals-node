@@ -37,8 +37,11 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      - name: Install safe-chain
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
+
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm i
 
       # Python 3.12+ removed distutils, but node-gyp needs it
       - name: Setup Python 3.11 for node-gyp

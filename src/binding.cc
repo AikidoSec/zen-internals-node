@@ -87,6 +87,7 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
   g_isolate = isolate;
   g_callback.Reset(isolate, v8_func);
 
+  // Register the V8 callback (safe to call multiple times, only needs to be set once)
   isolate->SetModifyCodeGenerationFromStringsCallback(ModifyCodeGenCallback);
 
   return nullptr;

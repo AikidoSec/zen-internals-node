@@ -21,7 +21,7 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     return {true, {}};
   }
 
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
 
   // Ensure we're on the same isolate where the callback was registered
   if (isolate != g_isolate) {

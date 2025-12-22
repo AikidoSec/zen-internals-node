@@ -81,13 +81,6 @@ napi_value SetCallback(napi_env env, napi_callback_info info) {
 
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
 
-  // Clean up existing callback if any
-  if (!g_callback.IsEmpty()) {
-    g_callback.Reset();
-  }
-
-  // [V8 API] Convert N-API value to V8 Local and store as Persistent
-  // N-API values are wrappers around V8 values, so we can cast them
   v8::Local<v8::Value> v8_value = reinterpret_cast<v8::Local<v8::Value>*>(&argv[0])[0];
   v8::Local<v8::Function> v8_func = v8_value.As<v8::Function>();
 

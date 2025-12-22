@@ -80,6 +80,10 @@ napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
   }
 
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  if (isolate == nullptr) {
+    napi_throw_error(env, nullptr, "Failed to get V8 isolate");
+    return nullptr;
+  }
 
   // Convert napi_value to v8::Local<v8::Value> using memcpy to avoid strict-aliasing violations
   v8::Local<v8::Value> v8_value;

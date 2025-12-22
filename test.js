@@ -41,8 +41,27 @@ store.run({ requestId: 'req-789', blocked: true }, () => {
   );
 });
 
+// Test: blocks Function constructor accessed via prototype chain
+store.run({ requestId: 'req-proto', blocked: true }, () => {
+  assert.throws(
+    () => ({}).constructor.constructor('return 1')(),
+    {
+      name: 'EvalError',
+      message: 'Blocked eval in request req-proto'
+    }
+  );
+});
+
+// Test override callback to allow all
+setCodeGenerationCallback((source) => {
+  return undefined; // Allow all
+});
+// Should no longer block
+store.run({ requestId: 'req-allow', blocked: true }, () => {
+   assert.strictEqual(eval('4 + 4'), 8);
+});
+
 console.log('All tests passed');
 
-// TODO test for overwriting the callback
 // TODO test vm module with the dynamic code generation options
 // TODO test with the --disallow-code-generation-from-strings flag

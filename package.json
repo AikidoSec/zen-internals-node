@@ -21,9 +21,6 @@
     "hook",
     "native"
   ],
-  "engines": {
-    "node": ">=16.0.0 <=25.0.0"
-  },
   "devDependencies": {
     "prebuildify": "^6.0.1"
   }

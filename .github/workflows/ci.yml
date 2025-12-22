@@ -55,9 +55,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Node 17.0.0 headers are missing due to a bug, use 17.9.1 instead
+      # Get current node version without "v" prefix (e.g., "20.15.0")
       - name: Build prebuild
-        run: npx prebuildify --strip -t ${{ matrix.node == 17 && '17.9.1' || format('{0}.0.0', matrix.node) }}
+        run: npx prebuildify --strip -t $(node -p "process.version.slice(1)")
 
       - name: Run tests
         run: npm test

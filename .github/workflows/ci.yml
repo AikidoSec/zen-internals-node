@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  workflow_call:
+
+jobs:
+  prebuild:
+    name: Prebuild ${{ matrix.os }} ${{ matrix.arch }} Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-latest, windows-latest]
+        # Node 17 excluded: V8 callback doesn't work correctly
+        node: [16, 18, 19, 20, 21, 22, 23, 24, 25]
+        exclude:
+          - os: macos-latest
+            node: 16
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+          - os: macos-latest
+            arch: arm64
+          - os: windows-latest
+            arch: x64
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}.x
+
+      - name: Install safe-chain
+        if: runner.os != 'Windows'
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
+
+      - name: Install safe-chain
+        if: runner.os == 'Windows'
+        run: iex "& { $(iwr 'https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.ps1' -UseBasicParsing) } -ci"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      # Python 3.12+ removed distutils, but node-gyp needs it
+      - name: Setup Python 3.11 for node-gyp
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Get current node version without "v" prefix (e.g., "20.15.0")
+      - name: Build prebuild
+        run: npx prebuildify --strip -t $(node -p "process.version.slice(1)")
+
+      - name: Run tests
+        run: npm test
+
+      - name: Rename prebuild with platform and Node version
+        run: |
+          for dir in prebuilds/*/; do
+            platform=$(basename "$dir")
+            mv "$dir/zen-internals-node.node" "prebuilds/zen-internals-node-$platform-node${{ matrix.node }}.node"
+          done
+        shell: bash
+
+      - name: Upload prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.os }}-${{ matrix.arch }}-node${{ matrix.node }}
+          path: prebuilds/
+          retention-days: 30

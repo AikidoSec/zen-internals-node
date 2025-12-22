@@ -81,7 +81,9 @@ napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
 
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
 
-  v8::Local<v8::Value> v8_value = reinterpret_cast<v8::Local<v8::Value>*>(&argv[0])[0];
+  // Convert napi_value to v8::Local<v8::Value> using memcpy to avoid strict-aliasing violations
+  v8::Local<v8::Value> v8_value;
+  std::memcpy(&v8_value, &argv[0], sizeof(v8_value));
   v8::Local<v8::Function> v8_func = v8_value.As<v8::Function>();
 
   g_isolate = isolate;

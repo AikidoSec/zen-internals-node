@@ -101,15 +101,12 @@ jobs:
             apk add --no-cache python3 make g++ &&
             npm install --ignore-scripts &&
             npx prebuildify --strip -t \$(node -p 'process.version.slice(1)') &&
-            npm test
+            npm test &&
+            for dir in prebuilds/*/; do
+              platform=\$(basename \"\$dir\")
+              mv \"\$dir/zen-internals-node.node\" \"prebuilds/zen-internals-node-\${platform}-musl-node${{ matrix.node }}.node\"
+            done
           "
-
-      - name: Rename prebuild with platform and Node version
-        run: |
-          for dir in prebuilds/*/; do
-            platform=$(basename "$dir")
-            mv "$dir/zen-internals-node.node" "prebuilds/zen-internals-node-${platform}-musl-node${{ matrix.node }}.node"
-          done
 
       - name: Upload prebuild
         uses: actions/upload-artifact@v4

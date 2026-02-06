@@ -81,8 +81,6 @@ jobs:
     name: Prebuild Linux musl ${{ matrix.arch }} Node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
-    container:
-      image: node:${{ matrix.node }}-alpine
     strategy:
       fail-fast: false
       matrix:
@@ -97,17 +95,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install build tools
-        run: apk add --no-cache python3 make g++
-
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-
-      - name: Build prebuild
-        run: npx prebuildify --strip -t $(node -p "process.version.slice(1)")
-
-      - name: Run tests
-        run: npm test
+      - name: Build and test in Alpine container
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace node:${{ matrix.node }}-alpine sh -c "
+            apk add --no-cache python3 make g++ &&
+            npm install --ignore-scripts &&
+            npx prebuildify --strip -t \$(node -p 'process.version.slice(1)') &&
+            npm test
+          "
 
       - name: Rename prebuild with platform and Node version
         run: |

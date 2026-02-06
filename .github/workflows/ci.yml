@@ -50,7 +50,7 @@ jobs:
 
       # Python 3.12+ removed distutils, but node-gyp needs it
       - name: Setup Python 3.11 for node-gyp
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' || runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'

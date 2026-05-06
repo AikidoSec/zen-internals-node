@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - "*.*.*"
 
 jobs:
   build:
@@ -13,7 +14,7 @@ jobs:
   release:
     name: Upload release assets
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: open-source-releaser
     permissions:
       contents: write
     steps:
@@ -24,9 +25,16 @@ jobs:
           pattern: prebuild-*
           merge-multiple: true
 
-      - name: Upload to release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+      - name: Create draft release and upload assets
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          draft: true
           files: ./prebuilds/**/*.node
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: gh release edit "$VERSION" --draft=false

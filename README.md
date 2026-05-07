@@ -1,5 +1,7 @@
 # zen-internals-node
 
+This repository contains a native Node.js addon used by [Zen for Node.js](https://github.com/AikidoSec/firewall-node).
+
 ```js
 import { setCodeGenerationCallback } from 'zen-internals-node';
 

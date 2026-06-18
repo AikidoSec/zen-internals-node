@@ -41,8 +41,13 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
   v8::MaybeLocal<v8::Value> maybe_result = callback->Call(context, context->Global(), 1, argv);
 
   if (try_catch.HasCaught()) {
-    // The callback threw an exception, allow code generation
-    return {true, {}};
+    // The callback threw an exception, deny code generation (fail-closed)
+    v8::Local<v8::String> error_msg = v8::String::NewFromUtf8(
+        isolate,
+        "Code generation blocked: validation callback threw an exception",
+        v8::NewStringType::kNormal).ToLocalChecked();
+    context->SetErrorMessageForCodeGenerationFromStrings(error_msg);
+    return {false, {}};
   }
 
   if (maybe_result.IsEmpty()) {

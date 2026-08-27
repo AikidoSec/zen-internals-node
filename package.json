@@ -6,7 +6,8 @@
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "test": "node test.js && node ip-matcher.test.js",
-    "benchmark:ip-matcher": "node benchmark-ip-matcher.js"
+    "benchmark:ip-matcher": "node benchmarks/ip-matcher.js",
+    "benchmark:ip-matcher-vs-blocklist": "node benchmarks/ip-matcher-vs-blocklist.js"
   },
   "files": [
     "src/",

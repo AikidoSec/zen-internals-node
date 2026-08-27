@@ -5,7 +5,8 @@
   "main": "index.js",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js && node ip-matcher.test.js",
+    "benchmark:ip-matcher": "node benchmark-ip-matcher.js"
   },
   "files": [
     "src/",

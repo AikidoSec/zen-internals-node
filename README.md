@@ -19,3 +19,21 @@ setCodeGenerationCallback((code) => {
   return 'Code generation blocked because ...';
 });
 ```
+
+## IP matcher
+
+Matcher construction runs asynchronously. Once constructed, lookups are synchronous.
+
+```js
+import { createIPMatcher } from 'zen-internals-node';
+
+const matcher = await createIPMatcher([
+  '10.0.0.0/8',
+  '2001:db8::/32',
+]);
+
+matcher.has('10.0.0.1'); // true
+matcher.has('192.168.0.1'); // false
+```
+
+Invalid networks are ignored. `createIPMatcher` throws when its argument is not an array of strings.

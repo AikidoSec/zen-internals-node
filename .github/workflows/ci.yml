@@ -54,6 +54,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run IP matcher benchmark
+        run: npm run benchmark:ip-matcher
+
       - name: Rename prebuild with platform and Node version
         run: |
           for dir in prebuilds/*/; do
@@ -94,6 +97,7 @@ jobs:
             npm install --ignore-scripts &&
             npx prebuildify --strip -t \$(node -p 'process.version.slice(1)') &&
             npm test &&
+            npm run benchmark:ip-matcher &&
             for dir in prebuilds/*/; do
               platform=\$(basename \"\$dir\")
               mv \"\$dir/zen-internals-node.node\" \"prebuilds/zen-internals-node-\${platform}-musl-node${{ matrix.node }}.node\"

@@ -27,5 +27,6 @@ if (!fs.existsSync(bindingPath)) {
 const binding = require(bindingPath);
 
 module.exports = {
-  setCodeGenerationCallback: binding.setCodeGenerationCallback
+  setCodeGenerationCallback: binding.setCodeGenerationCallback,
+  createIPMatcher: binding.createIPMatcher,
 };

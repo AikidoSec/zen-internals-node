@@ -42,11 +42,14 @@ std::string_view Trim(std::string_view value) {
   return value.substr(start, end - start);
 }
 
-std::vector<std::string_view> Split(std::string_view value, char delimiter) {
+std::vector<std::string_view> Split(std::string_view value, char delimiter, size_t max_parts) {
   std::vector<std::string_view> parts;
   size_t start = 0;
   for (size_t index = 0; index <= value.size(); index++) {
     if (index == value.size() || value[index] == delimiter) {
+      if (parts.size() == max_parts) {
+        return parts;
+      }
       parts.push_back(value.substr(start, index - start));
       start = index + 1;
     }
@@ -117,7 +120,7 @@ std::optional<bool> LooksLikeIPv4(std::string_view value) {
 }
 
 bool ParseIPv4(std::string_view value, std::array<uint8_t, 16>* bytes) {
-  const auto parts = Split(value, '.');
+  const auto parts = Split(value, '.', 5);
   if (parts.size() != 4) {
     return false;
   }
@@ -185,7 +188,7 @@ std::string_view RemovePortInfo(std::string_view value) {
 }
 
 bool ParseIPv4Part(std::string_view value, std::array<uint8_t, 16>* bytes, int* byte_index, bool reverse) {
-  const auto parts = Split(value, '.');
+  const auto parts = Split(value, '.', 5);
   if (parts.size() != 4) {
     return false;
   }
@@ -208,12 +211,12 @@ bool ParseIPv6LeftHalf(std::array<uint8_t, 16>* bytes, std::string_view value, i
     return true;
   }
 
-  for (const std::string_view part : Split(value, ':')) {
+  for (const std::string_view part : Split(value, ':', 9)) {
     if (*byte_index >= 16) {
       return false;
     }
 
-    if (Split(part, '.').size() == 4) {
+    if (Split(part, '.', 5).size() == 4) {
       if (!ParseIPv4Part(part, bytes, byte_index, false)) {
         return false;
       }
@@ -237,7 +240,7 @@ bool ParseIPv6RightHalf(std::array<uint8_t, 16>* bytes, std::string_view value, 
   }
 
   int right_byte_index = 15;
-  const auto parts = Split(value, ':');
+  const auto parts = Split(value, ':', 9);
   for (size_t offset = 0; offset < parts.size(); offset++) {
     const size_t index = parts.size() - offset - 1;
     std::string_view part = parts[index];
@@ -245,7 +248,7 @@ bool ParseIPv6RightHalf(std::array<uint8_t, 16>* bytes, std::string_view value, 
       return false;
     }
 
-    if (Split(part, '.').size() == 4) {
+    if (Split(part, '.', 5).size() == 4) {
       if (!ParseIPv4Part(part, bytes, &right_byte_index, true)) {
         return false;
       }
@@ -302,7 +305,7 @@ namespace parse {
 
 std::optional<ParsedNetwork> Network(std::string_view value) {
   value = Trim(value);
-  const auto parts = Split(value, '/');
+  const auto parts = Split(value, '/', 3);
   if (parts.empty() || parts.size() > 2) {
     return std::nullopt;
   }

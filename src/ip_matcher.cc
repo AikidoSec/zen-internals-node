@@ -42,15 +42,42 @@ std::string_view Trim(std::string_view value) {
   return value.substr(start, end - start);
 }
 
-std::vector<std::string_view> Split(std::string_view value, char delimiter, size_t max_parts) {
-  std::vector<std::string_view> parts;
+template <size_t MaxParts>
+struct StringViewParts {
+  std::array<std::string_view, MaxParts> values{};
+  size_t count = 0;
+
+  size_t size() const {
+    return count;
+  }
+
+  bool empty() const {
+    return count == 0;
+  }
+
+  const std::string_view& operator[](size_t index) const {
+    return values[index];
+  }
+
+  const std::string_view* begin() const {
+    return values.data();
+  }
+
+  const std::string_view* end() const {
+    return values.data() + count;
+  }
+};
+
+template <size_t MaxParts>
+StringViewParts<MaxParts> Split(std::string_view value, char delimiter) {
+  StringViewParts<MaxParts> parts;
   size_t start = 0;
   for (size_t index = 0; index <= value.size(); index++) {
     if (index == value.size() || value[index] == delimiter) {
-      if (parts.size() == max_parts) {
+      if (parts.count == MaxParts) {
         return parts;
       }
-      parts.push_back(value.substr(start, index - start));
+      parts.values[parts.count++] = value.substr(start, index - start);
       start = index + 1;
     }
   }
@@ -120,7 +147,7 @@ std::optional<bool> LooksLikeIPv4(std::string_view value) {
 }
 
 bool ParseIPv4(std::string_view value, std::array<uint8_t, 16>* bytes) {
-  const auto parts = Split(value, '.', 5);
+  const auto parts = Split<5>(value, '.');
   if (parts.size() != 4) {
     return false;
   }
@@ -188,7 +215,7 @@ std::string_view RemovePortInfo(std::string_view value) {
 }
 
 bool ParseIPv4Part(std::string_view value, std::array<uint8_t, 16>* bytes, int* byte_index, bool reverse) {
-  const auto parts = Split(value, '.', 5);
+  const auto parts = Split<5>(value, '.');
   if (parts.size() != 4) {
     return false;
   }
@@ -211,12 +238,12 @@ bool ParseIPv6LeftHalf(std::array<uint8_t, 16>* bytes, std::string_view value, i
     return true;
   }
 
-  for (const std::string_view part : Split(value, ':', 9)) {
+  for (const std::string_view part : Split<9>(value, ':')) {
     if (*byte_index >= 16) {
       return false;
     }
 
-    if (Split(part, '.', 5).size() == 4) {
+    if (Split<5>(part, '.').size() == 4) {
       if (!ParseIPv4Part(part, bytes, byte_index, false)) {
         return false;
       }
@@ -240,7 +267,7 @@ bool ParseIPv6RightHalf(std::array<uint8_t, 16>* bytes, std::string_view value, 
   }
 
   int right_byte_index = 15;
-  const auto parts = Split(value, ':', 9);
+  const auto parts = Split<9>(value, ':');
   for (size_t offset = 0; offset < parts.size(); offset++) {
     const size_t index = parts.size() - offset - 1;
     std::string_view part = parts[index];
@@ -248,7 +275,7 @@ bool ParseIPv6RightHalf(std::array<uint8_t, 16>* bytes, std::string_view value, 
       return false;
     }
 
-    if (Split(part, '.', 5).size() == 4) {
+    if (Split<5>(part, '.').size() == 4) {
       if (!ParseIPv4Part(part, bytes, &right_byte_index, true)) {
         return false;
       }
@@ -305,7 +332,7 @@ namespace parse {
 
 std::optional<ParsedNetwork> Network(std::string_view value) {
   value = Trim(value);
-  const auto parts = Split(value, '/', 3);
+  const auto parts = Split<3>(value, '/');
   if (parts.empty() || parts.size() > 2) {
     return std::nullopt;
   }
@@ -524,25 +551,25 @@ bool Network::Contains(const Network& network) const {
   if (netbits_ == 0) {
     return true;
   }
-  if (network.netbits_ == 0 || addr.Compare(network.addr) == kAfter) {
+  if (network.netbits_ == 0 || netbits_ > network.netbits_ || addr.Compare(network.addr) == kAfter) {
     return false;
   }
 
-  Network next = Duplicate();
-  next.Next();
-  Network other_next = network.Duplicate();
-  other_next.Next();
+  const auto& bytes = addr.bytes();
+  const auto& other_bytes = network.addr.bytes();
+  const int complete_bytes = netbits_ / 8;
+  for (int index = 0; index < complete_bytes; index++) {
+    if (bytes[index] != other_bytes[index]) {
+      return false;
+    }
+  }
 
-  if (!next.IsValid()) {
+  const int remaining_bits = netbits_ % 8;
+  if (remaining_bits == 0) {
     return true;
   }
-  if (!other_next.IsValid()) {
-    return false;
-  }
-  if (next.addr.Compare(other_next.addr) == kBefore) {
-    return false;
-  }
-  return true;
+  const uint8_t mask = static_cast<uint8_t>(0xff << (8 - remaining_bits));
+  return (bytes[complete_bytes] & mask) == (other_bytes[complete_bytes] & mask);
 }
 
 bool Network::Adjacent(const Network& network) const {

@@ -7,6 +7,7 @@
 
 #include <node_api.h>
 #include <v8.h>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -22,6 +23,7 @@ static v8::Isolate* g_isolate = nullptr;
 constexpr uint32_t kMaxIPMatcherNetworks = 1'000'000;
 constexpr size_t kMaxIPMatcherInputBytes = 64 * 1024 * 1024;
 constexpr uint32_t kInitialIPMatcherCapacity = 1024;
+constexpr size_t kIPMatcherStackNetworkBytes = 128;
 
 v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     v8::Local<v8::Context> context,
@@ -173,9 +175,18 @@ napi_value IPMatcherHas(napi_env env, napi_callback_info info) {
     if (argc == 1 &&
         napi_unwrap(env, receiver, reinterpret_cast<void**>(&wrapped_matcher)) == napi_ok &&
         wrapped_matcher != nullptr) {
-      std::string network;
-      if (GetString(env, argv[0], &network)) {
-        matches = wrapped_matcher->matcher->Has(network);
+      std::array<char, kIPMatcherStackNetworkBytes> network_buffer;
+      size_t copied;
+      if (napi_get_value_string_utf8(
+              env, argv[0], network_buffer.data(), network_buffer.size(), &copied) == napi_ok) {
+        if (copied < network_buffer.size() - 1) {
+          matches = wrapped_matcher->matcher->Has(std::string_view(network_buffer.data(), copied));
+        } else {
+          std::string network;
+          if (GetString(env, argv[0], &network)) {
+            matches = wrapped_matcher->matcher->Has(network);
+          }
+        }
       }
     }
   } catch (...) {

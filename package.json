@@ -5,6 +5,7 @@
   "main": "index.js",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
+    "build": "npx prebuildify --strip -t $(node -p \"process.version.slice(1)\")",
     "test": "node test.js && node ip-matcher.test.js",
     "benchmark:ip-matcher": "node benchmarks/ip-matcher.js",
     "benchmark:ip-matcher-vs-blocklist": "node benchmarks/ip-matcher-vs-blocklist.js"

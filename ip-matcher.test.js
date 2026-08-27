@@ -81,6 +81,11 @@ async function main() {
     assert.strictEqual(matcher.has('192.168.0.1/32'), true);
   });
 
+  await test('it accepts port-suffixed IPv4 lookups', async () => {
+    const matcher = await createIPMatcher(['192.0.2.1']);
+    assert.strictEqual(matcher.has('192.0.2.1:80'), true);
+  });
+
   await test('it works with empty ranges', async () => {
     const matcher = await createIPMatcher([]);
     assert.strictEqual(matcher.has('192.168.2.1'), false);

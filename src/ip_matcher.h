@@ -70,6 +70,8 @@ class IPMatcher {
   bool Has(std::string_view network) const;
 
  private:
+  bool HasIPv4(const std::array<uint8_t, 16>& bytes) const;
+
   std::vector<Network> sorted_;
 };
 

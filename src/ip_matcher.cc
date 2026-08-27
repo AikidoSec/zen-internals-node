@@ -163,6 +163,40 @@ bool ParseIPv4(std::string_view value, std::array<uint8_t, 16>* bytes) {
   return true;
 }
 
+uint32_t IPv4Value(const std::array<uint8_t, 16>& bytes) {
+  return (static_cast<uint32_t>(bytes[0]) << 24) |
+      (static_cast<uint32_t>(bytes[1]) << 16) |
+      (static_cast<uint32_t>(bytes[2]) << 8) |
+      static_cast<uint32_t>(bytes[3]);
+}
+
+bool ParseStrictIPv4Address(std::string_view value, std::array<uint8_t, 16>* bytes) {
+  size_t position = 0;
+  for (size_t index = 0; index < 4; index++) {
+    const size_t start = position;
+    uint32_t number = 0;
+    while (position < value.size() && value[position] >= '0' && value[position] <= '9') {
+      number = number * 10 + static_cast<uint32_t>(value[position] - '0');
+      if (number > 255) {
+        return false;
+      }
+      position++;
+    }
+    if (position == start) {
+      return false;
+    }
+    (*bytes)[index] = static_cast<uint8_t>(number);
+
+    if (index < 3) {
+      if (position == value.size() || value[position] != '.') {
+        return false;
+      }
+      position++;
+    }
+  }
+  return position == value.size();
+}
+
 int ParseHexDigit(char character) {
   if (character >= '0' && character <= '9') {
     return character - '0';
@@ -691,7 +725,39 @@ size_t IPMatcher::MemorySize() const {
   return sizeof(*this) + sorted_.capacity() * sizeof(Network);
 }
 
+bool IPMatcher::HasIPv4(const std::array<uint8_t, 16>& bytes) const {
+  const uint32_t address = IPv4Value(bytes);
+  size_t left = 0;
+  size_t right = sorted_.size();
+  while (left < right) {
+    const size_t middle = left + (right - left) / 2;
+    const Network& candidate = sorted_[middle];
+    if (candidate.addr.byte_length() < 4 ||
+        (candidate.addr.byte_length() == 4 && IPv4Value(candidate.addr.bytes()) <= address)) {
+      left = middle + 1;
+    } else {
+      right = middle;
+    }
+  }
+
+  if (left == 0 || sorted_[left - 1].addr.byte_length() != 4) {
+    return false;
+  }
+
+  const Network& candidate = sorted_[left - 1];
+  const int cidr = candidate.cidr();
+  if (cidr == 0) {
+    return true;
+  }
+  return (address >> (32 - cidr)) == (IPv4Value(candidate.addr.bytes()) >> (32 - cidr));
+}
+
 bool IPMatcher::Has(std::string_view network) const {
+  std::array<uint8_t, 16> bytes{};
+  if (ParseStrictIPv4Address(network, &bytes)) {
+    return HasIPv4(bytes);
+  }
+
   const auto parsed = ParseBaseNetwork(network, false);
   if (!parsed || !parsed->IsValid()) {
     return false;

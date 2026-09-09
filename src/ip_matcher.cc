@@ -336,6 +336,13 @@ bool ParseIPv6(std::string_view value, std::array<uint8_t, 16>* bytes) {
   if (value.empty()) {
     return false;
   }
+  const size_t zone_index = value.find('%');
+  if (zone_index != std::string_view::npos) {
+    if (zone_index == value.size() - 1) {
+      return false;
+    }
+    value = value.substr(0, zone_index);
+  }
   if (value == "::") {
     return true;
   }

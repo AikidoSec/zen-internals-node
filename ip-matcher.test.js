@@ -140,6 +140,15 @@ async function main() {
     assert.strictEqual(matcher.has('2001:db9::abc'), true);
   });
 
+  await test('it strips zones from scoped IPv6 addresses', async () => {
+    const matcher = await createIPMatcher(['fe80::/10', '::1/128']);
+
+    assert.strictEqual(matcher.has('fe80::1%eth0'), true);
+    assert.strictEqual(matcher.has('fe80::1%dummy0'), true);
+    assert.strictEqual(matcher.has('::1%lo'), true);
+    assert.strictEqual(matcher.has('fe80::1%'), false);
+  });
+
   await test('mix IPv4 and IPv6', async () => {
     const matcher = await createIPMatcher(['2002:db8::/32', '10.0.0.0/8']);
 

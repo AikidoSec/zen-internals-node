@@ -6,19 +6,26 @@
  */
 
 #include <node_api.h>
+#include <node.h>
 #include <v8.h>
 #include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "ip_matcher.h"
 
-static v8::Persistent<v8::Function> g_callback;
-static v8::Isolate* g_isolate = nullptr;
+struct IsolateCallbackData {
+  v8::Persistent<v8::Function> callback;
+};
+
+static std::mutex g_isolate_map_mutex;
+static std::unordered_map<v8::Isolate*, std::unique_ptr<IsolateCallbackData>> g_isolate_callbacks;
 
 constexpr uint32_t kMaxIPMatcherNetworks = 1'000'000;
 constexpr size_t kMaxIPMatcherInputBytes = 64 * 1024 * 1024;
@@ -30,20 +37,28 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
     v8::Local<v8::Value> source,
     bool is_code_like) {
 
-  if (g_isolate == nullptr || g_callback.IsEmpty()) {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  if (isolate == nullptr) {
     return {true, {}};
   }
 
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  IsolateCallbackData* callback_data = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(g_isolate_map_mutex);
+    auto it = g_isolate_callbacks.find(isolate);
+    if (it == g_isolate_callbacks.end() || !it->second) {
+      return {true, {}};
+    }
+    callback_data = it->second.get();
+  }
 
-  // Ensure we're on the same isolate where the callback was registered
-  if (isolate != g_isolate) {
+  if (callback_data->callback.IsEmpty()) {
     return {true, {}};
   }
 
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Function> callback = g_callback.Get(isolate);
+  v8::Local<v8::Function> callback = callback_data->callback.Get(isolate);
   if (callback.IsEmpty()) {
     return {true, {}};
   }
@@ -75,6 +90,18 @@ v8::ModifyCodeGenerationFromStringsResult ModifyCodeGenCallback(
   return {true, {}};
 }
 
+void CleanupIsolateCallback(void* data) {
+  v8::Isolate* isolate = static_cast<v8::Isolate*>(data);
+  std::lock_guard<std::mutex> lock(g_isolate_map_mutex);
+  auto it = g_isolate_callbacks.find(isolate);
+  if (it != g_isolate_callbacks.end()) {
+    if (it->second && !it->second->callback.IsEmpty()) {
+      it->second->callback.Reset();
+    }
+    g_isolate_callbacks.erase(it);
+  }
+}
+
 napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1];
@@ -103,10 +130,29 @@ napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
   std::memcpy(&v8_value, &argv[0], sizeof(v8_value));
   v8::Local<v8::Function> v8_func = v8_value.As<v8::Function>();
 
-  g_isolate = isolate;
-  g_callback.Reset(isolate, v8_func);
+  {
+    std::lock_guard<std::mutex> lock(g_isolate_map_mutex);
+    
+    // Check if this isolate already has a callback registered
+    auto it = g_isolate_callbacks.find(isolate);
+    if (it != g_isolate_callbacks.end()) {
+      // Update existing callback
+      if (it->second && !it->second->callback.IsEmpty()) {
+        it->second->callback.Reset();
+      }
+      it->second->callback.Reset(isolate, v8_func);
+    } else {
+      // Create new callback data for this isolate
+      auto callback_data = std::make_unique<IsolateCallbackData>();
+      callback_data->callback.Reset(isolate, v8_func);
+      g_isolate_callbacks[isolate] = std::move(callback_data);
+      
+      // Register cleanup hook to remove callback when isolate is destroyed
+      node::AddEnvironmentCleanupHook(isolate, CleanupIsolateCallback, isolate);
+    }
+  }
 
-  // Register the V8 callback (safe to call multiple times, only needs to be set once)
+  // Register the V8 callback (safe to call multiple times, only needs to be set once per isolate)
   isolate->SetModifyCodeGenerationFromStringsCallback(ModifyCodeGenCallback);
 
   return nullptr;

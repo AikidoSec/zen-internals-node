@@ -12,10 +12,11 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "ip_matcher.h"
+#include "zen_ip_matcher.h"
 
 static v8::Persistent<v8::Function> g_callback;
 static v8::Isolate* g_isolate = nullptr;
@@ -112,15 +113,26 @@ napi_value SetCodeGenerationCallback(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
+struct IPMatcherFree {
+  void operator()(IpMatcherHandle* handle) const noexcept { ip_matcher_free(handle); }
+};
+
+using IPMatcherPtr = std::unique_ptr<IpMatcherHandle, IPMatcherFree>;
+
+bool IPMatcherHasNetwork(const IpMatcherHandle* matcher, std::string_view network) {
+  const auto* bytes = reinterpret_cast<const uint8_t*>(network.data());
+  return ip_matcher_has(matcher, bytes, network.size()) == IP_MATCHER_MATCH;
+}
+
 struct BuildIPMatcherData {
   napi_async_work work;
   napi_deferred deferred;
   std::vector<std::string> networks;
-  std::unique_ptr<ip_matcher::IPMatcher> matcher;
+  IPMatcherPtr matcher;
 };
 
 struct WrappedIPMatcher {
-  std::unique_ptr<ip_matcher::IPMatcher> matcher;
+  IPMatcherPtr matcher;
   int64_t external_memory = 0;
 };
 
@@ -180,11 +192,11 @@ napi_value IPMatcherHas(napi_env env, napi_callback_info info) {
       if (napi_get_value_string_utf8(
               env, argv[0], network_buffer.data(), network_buffer.size(), &copied) == napi_ok) {
         if (copied < network_buffer.size() - 1) {
-          matches = wrapped_matcher->matcher->Has(std::string_view(network_buffer.data(), copied));
+          matches = IPMatcherHasNetwork(wrapped_matcher->matcher.get(), std::string_view(network_buffer.data(), copied));
         } else {
           std::string network;
           if (GetString(env, argv[0], &network)) {
-            matches = wrapped_matcher->matcher->Has(network);
+            matches = IPMatcherHasNetwork(wrapped_matcher->matcher.get(), network);
           }
         }
       }
@@ -201,7 +213,12 @@ napi_value IPMatcherHas(napi_env env, napi_callback_info info) {
 void BuildIPMatcher(napi_env, void* data) noexcept {
   auto* build_data = static_cast<BuildIPMatcherData*>(data);
   try {
-    build_data->matcher = std::make_unique<ip_matcher::IPMatcher>(build_data->networks);
+    std::vector<IpMatcherByteSlice> networks;
+    networks.reserve(build_data->networks.size());
+    for (const std::string& network : build_data->networks) {
+      networks.push_back({reinterpret_cast<const uint8_t*>(network.data()), network.size()});
+    }
+    build_data->matcher.reset(ip_matcher_create(networks.data(), networks.size()));
   } catch (...) {
     build_data->matcher.reset();
   }
@@ -235,7 +252,7 @@ void CompleteIPMatcherBuild(napi_env env, napi_status status, void* data) {
 
       if (matcher_status == napi_ok) {
         const int64_t external_memory = static_cast<int64_t>(
-            sizeof(*matcher_data) + matcher_data->matcher->MemorySize());
+            sizeof(*matcher_data) + ip_matcher_memory_size(matcher_data->matcher.get()));
         int64_t adjusted_external_memory;
         matcher_status = napi_adjust_external_memory(env, external_memory, &adjusted_external_memory);
         if (matcher_status == napi_ok) {

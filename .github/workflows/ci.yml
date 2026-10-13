@@ -53,6 +53,13 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
+      - name: Build Rust IP matcher
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+          npm run build:rust
+        shell: bash
+
       # Python 3.12+ removed distutils, but node-gyp needs it
       - name: Setup Python 3.11 for node-gyp
         if: runner.os == 'macOS' || runner.os == 'Windows'
@@ -100,12 +107,25 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: x64
+            rust_target: x86_64-unknown-linux-musl
           - os: ubuntu-24.04-arm
             arch: arm64
+            rust_target: aarch64-unknown-linux-musl
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Built on the host so the Alpine container doesn't need Rust.
+      - name: Build Rust IP matcher
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+          rustup target add ${{ matrix.rust_target }}
+          cd rust
+          cargo build --release --locked --target ${{ matrix.rust_target }}
+          mkdir -p target/release
+          cp target/${{ matrix.rust_target }}/release/libzen_ip_matcher_node.a target/release/
 
       - name: Build and test in Alpine container
         run: |

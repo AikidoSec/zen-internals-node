@@ -37,3 +37,7 @@ matcher.has('192.168.0.1'); // false
 ```
 
 Invalid networks are ignored. `createIPMatcher` throws when its argument is not an array of strings.
+
+IPv4-mapped IPv6 addresses match IPv4 networks: `matcher.has('::ffff:10.0.0.1')` is `true`. Lookups longer than 128 bytes never match.
+
+The matcher is the Rust `zen_ip_matcher` crate from [zen-internals](https://github.com/AikidoSec/zen-internals), built by `npm run build:rust` (needs a Rust toolchain) before node-gyp links it into the addon.

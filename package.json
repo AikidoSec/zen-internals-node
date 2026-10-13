@@ -5,6 +5,7 @@
   "main": "index.js",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
+    "build:rust": "cd rust && cargo build --release --locked",
     "test": "node test.js && node ip-matcher.test.js",
     "benchmark:ip-matcher": "node benchmark-ip-matcher.js"
   },
@@ -12,6 +13,10 @@
     "src/",
     "index.js",
     "binding.gyp",
+    "rust/Cargo.toml",
+    "rust/Cargo.lock",
+    "rust/.cargo/",
+    "rust/src/",
     "prebuilds/"
   ],
   "keywords": [
